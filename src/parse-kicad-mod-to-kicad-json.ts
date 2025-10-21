@@ -8,6 +8,7 @@ import {
   type FpLine,
   type FpText,
   type FpCircle,
+  type FpRect,
   type FpPoly,
   type Hole,
   type KicadModJson,
@@ -201,6 +202,33 @@ export const parseKicadModToKicadJson = (fileContent: string): KicadModJson => {
     })
   }
 
+  const fp_rects: FpRect[] = []
+  const fp_rects_rows = kicadSExpr
+    .slice(2)
+    .filter((row: any[]) => row[0] === "fp_rect")
+
+  for (const fp_rect_row of fp_rects_rows) {
+    const start = getAttr(fp_rect_row, "start")
+    const end = getAttr(fp_rect_row, "end")
+    const stroke = getAttr(fp_rect_row, "stroke")
+    const fill = getAttr(fp_rect_row, "fill")
+    const layer = getAttr(fp_rect_row, "layer")
+    const uuid = getAttr(fp_rect_row, "uuid")
+
+    if (!start || !end || !layer || !stroke) {
+      continue
+    }
+
+    fp_rects.push({
+      start,
+      end,
+      stroke,
+      fill,
+      layer,
+      uuid,
+    })
+  }
+
   const fp_polys: FpPoly[] = []
   const fp_polys_rows = kicadSExpr
     .slice(2)
@@ -280,6 +308,7 @@ export const parseKicadModToKicadJson = (fileContent: string): KicadModJson => {
     fp_texts,
     fp_arcs,
     fp_circles,
+    fp_rects,
     pads,
     holes,
     fp_polys,
