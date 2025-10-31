@@ -1,4 +1,4 @@
-import type { KicadModJson } from "./kicad-zod"
+import type { FpPolySegment, KicadModJson } from "./kicad-zod"
 import type { AnyCircuitElement } from "circuit-json"
 import Debug from "debug"
 import { generateArcPath, getArcLength } from "./math/arc-utils"
@@ -49,6 +49,53 @@ const getAxisAlignedRectFromPoints = (
     width: maxX - minX,
     height: maxY - minY,
   }
+}
+
+const appendUniquePoint = (
+  points: Array<{ x: number; y: number }>,
+  point: { x: number; y: number },
+) => {
+  const last = points[points.length - 1]
+  if (last && Math.abs(last.x - point.x) < 1e-9 && Math.abs(last.y - point.y) < 1e-9) {
+    return
+  }
+  points.push(point)
+}
+
+const flattenPolySegments = (segments: FpPolySegment[]) => {
+  const result: Array<{ x: number; y: number }> = []
+
+  for (const segment of segments) {
+    if (Array.isArray(segment)) {
+      appendUniquePoint(result, { x: segment[0], y: segment[1] })
+      continue
+    }
+
+    if (segment.kind === "arc") {
+      if (!segment.start || !segment.mid || !segment.end) {
+        continue
+      }
+
+      const start = makePoint(segment.start)
+      const mid = makePoint(segment.mid)
+      const end = makePoint(segment.end)
+
+      const arcLength = getArcLength(start, mid, end)
+      if (!Number.isFinite(arcLength) || arcLength <= 0) {
+        appendUniquePoint(result, start)
+        appendUniquePoint(result, end)
+        continue
+      }
+
+      const numPoints = Math.max(8, Math.ceil(arcLength))
+      const arcPoints = generateArcPath(start, mid, end, numPoints)
+      for (const point of arcPoints) {
+        appendUniquePoint(result, point)
+      }
+    }
+  }
+
+  return result
 }
 
 const getRotationDeg = (at: number[] | undefined) => {
@@ -574,7 +621,8 @@ export const convertKicadJsonToTsCircuitSoup = async (
 
   if (fp_polys) {
     for (const fp_poly of fp_polys) {
-      const route = fp_poly.pts.map((p) => ({ x: p[0], y: -p[1] }))
+      const routePoints = flattenPolySegments(fp_poly.pts)
+      const route = routePoints.map((p) => ({ x: p.x, y: -p.y }))
       if (fp_poly.layer.endsWith(".Cu")) {
         const rect = getAxisAlignedRectFromPoints(route)
         if (rect) {

@@ -25,9 +25,36 @@ export const formatAttr = (val: any, attrKey: string) => {
   }
   if (attrKey === "pts") {
     // val is like [ [ 'xy', -1.25, -0.625 ], [ 'xy', 1.25, -0.625 ], ... ]
-    return val.map((xy_pair: any[]) =>
-      xy_pair.slice(1).map((n: any) => Number.parseFloat(n.valueOf())),
-    )
+    return val.map((segment: any[]) => {
+      const segmentType = segment[0]?.valueOf?.() ?? segment[0]
+      if (segmentType === "xy") {
+        return segment
+          .slice(1)
+          .map((n: any) => Number.parseFloat(n.valueOf()))
+      }
+
+      if (segmentType === "arc") {
+        const arcObj: Record<string, number[]> = {}
+        for (const arcElm of segment.slice(1)) {
+          const key = arcElm[0]?.valueOf?.() ?? arcElm[0]
+          arcObj[key] = arcElm
+            .slice(1)
+            .map((n: any) => Number.parseFloat(n.valueOf()))
+        }
+        if (arcObj.start && arcObj.mid && arcObj.end) {
+          return {
+            kind: "arc" as const,
+            start: arcObj.start,
+            mid: arcObj.mid,
+            end: arcObj.end,
+          }
+        }
+      }
+
+      return segment
+        .slice(1)
+        .map((n: any) => Number.parseFloat(n.valueOf?.() ?? n))
+    })
   }
   if (attrKey === "stroke") {
     const strokeObj: any = {}
