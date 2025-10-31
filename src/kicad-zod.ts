@@ -183,9 +183,18 @@ export const fp_circle_def = z.object({
   uuid: z.string().optional(),
 })
 
+const fp_poly_arc_segment = z.object({
+  kind: z.literal("arc"),
+  start: point2,
+  mid: point2,
+  end: point2,
+})
+
+export const fp_poly_segment = z.union([point2, fp_poly_arc_segment])
+
 export const fp_poly_def = z
   .object({
-    pts: z.array(point2),
+    pts: z.array(fp_poly_segment),
     stroke: z
       .object({
         width: z.number(),
@@ -259,4 +268,5 @@ export type FpLine = z.infer<typeof fp_line>
 export type FpArc = z.infer<typeof fp_arc_def>
 export type FpCircle = z.infer<typeof fp_circle_def>
 export type FpPoly = z.infer<typeof fp_poly_def>
+export type FpPolySegment = z.infer<typeof fp_poly_segment>
 export type KicadModJson = z.infer<typeof kicad_mod_json_def>
