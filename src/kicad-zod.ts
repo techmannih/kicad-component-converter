@@ -183,9 +183,18 @@ export const fp_circle_def = z.object({
   uuid: z.string().optional(),
 })
 
+export const fp_poly_arc_segment = z.object({
+  type: z.literal("arc"),
+  start: point2,
+  mid: point2,
+  end: point2,
+})
+
+export const fp_poly_segment = z.union([point2, fp_poly_arc_segment])
+
 export const fp_poly_def = z
   .object({
-    pts: z.array(point2),
+    pts: z.array(fp_poly_segment),
     stroke: z
       .object({
         width: z.number(),

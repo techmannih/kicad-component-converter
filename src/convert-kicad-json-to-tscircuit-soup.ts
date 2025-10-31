@@ -574,7 +574,35 @@ export const convertKicadJsonToTsCircuitSoup = async (
 
   if (fp_polys) {
     for (const fp_poly of fp_polys) {
-      const route = fp_poly.pts.map((p) => ({ x: p[0], y: -p[1] }))
+      const route: Array<{ x: number; y: number }> = []
+      const pushPoint = (point: { x: number; y: number }) => {
+        const last = route[route.length - 1]
+        if (!last || last.x !== point.x || last.y !== point.y) {
+          route.push(point)
+        }
+      }
+
+      for (const segment of fp_poly.pts) {
+        if (Array.isArray(segment)) {
+          pushPoint({ x: segment[0], y: -segment[1] })
+          continue
+        }
+
+        if (segment.type === "arc") {
+          const start = makePoint(segment.start)
+          const mid = makePoint(segment.mid)
+          const end = makePoint(segment.end)
+          const arcLength = getArcLength(start, mid, end)
+          const numPoints = Math.max(4, Math.ceil(arcLength))
+          const arcPoints = generateArcPath(start, mid, end, numPoints)
+
+          arcPoints.forEach((point) => {
+            const converted = { x: point.x, y: -point.y }
+            pushPoint(converted)
+          })
+        }
+      }
+
       if (fp_poly.layer.endsWith(".Cu")) {
         const rect = getAxisAlignedRectFromPoints(route)
         if (rect) {

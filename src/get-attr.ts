@@ -24,10 +24,32 @@ export const formatAttr = (val: any, attrKey: string) => {
     return effects_def.parse(effectsObj)
   }
   if (attrKey === "pts") {
-    // val is like [ [ 'xy', -1.25, -0.625 ], [ 'xy', 1.25, -0.625 ], ... ]
-    return val.map((xy_pair: any[]) =>
-      xy_pair.slice(1).map((n: any) => Number.parseFloat(n.valueOf())),
-    )
+    // val is like [ [ 'xy', -1.25, -0.625 ], [ 'arc', [ 'start', ...], ... ] ]
+    return val.map((segment: any[]) => {
+      const head = segment[0]?.valueOf?.() ?? segment[0]
+      if (head === "xy") {
+        return segment
+          .slice(1)
+          .map((n: any) => Number.parseFloat(n.valueOf()))
+      }
+      if (head === "arc") {
+        const arcObj: any = { type: "arc" }
+        for (const arcSegment of segment.slice(1)) {
+          const arcKey = arcSegment[0]?.valueOf?.() ?? arcSegment[0]
+          arcObj[arcKey] = arcSegment
+            .slice(1)
+            .map((n: any) => Number.parseFloat(n.valueOf()))
+        }
+        return arcObj
+      }
+      const coords = segment
+        .slice(1)
+        .map((n: any) => Number.parseFloat(n.valueOf()))
+      if (coords.length === 2 && coords.every((n: number) => !Number.isNaN(n))) {
+        return coords
+      }
+      return segment
+    })
   }
   if (attrKey === "stroke") {
     const strokeObj: any = {}
