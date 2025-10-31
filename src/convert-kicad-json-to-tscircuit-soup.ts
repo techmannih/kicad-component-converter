@@ -644,6 +644,10 @@ export const convertKicadJsonToTsCircuitSoup = async (
         dedupedRoute.length > 2 &&
         pointsAreClose(dedupedRoute[0]!, dedupedRoute[dedupedRoute.length - 1]!)
       const polygonPoints = isClosed ? dedupedRoute.slice(0, -1) : dedupedRoute
+      const closedRoute =
+        isClosed && polygonPoints.length > 0
+          ? [...polygonPoints, polygonPoints[0]!]
+          : dedupedRoute
       if (dedupedRoute.length === 0) continue
       const strokeWidth = fp_poly.stroke?.width ?? 0
       if (fp_poly.layer.endsWith(".Cu")) {
@@ -696,7 +700,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
           pcb_silkscreen_path_id: `pcb_silkscreen_path_${silkPathId++}`,
           pcb_component_id,
           layer: convertKicadLayerToTscircuitLayer(fp_poly.layer)!,
-          route: dedupedRoute,
+          route: closedRoute,
           stroke_width: strokeWidth,
         } as any)
       } else if (fp_poly.layer.endsWith(".Fab")) {
@@ -705,7 +709,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
           fabrication_note_path_id: `fabrication_note_path_${fabPathId++}`,
           pcb_component_id,
           layer: convertKicadLayerToTscircuitLayer(fp_poly.layer)!,
-          route: dedupedRoute,
+          route: closedRoute,
           stroke_width: strokeWidth,
           port_hints: [],
         } as any)
