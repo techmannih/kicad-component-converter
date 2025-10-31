@@ -73,6 +73,18 @@ const dedupeSequentialPoints = (
   return deduped
 }
 
+const ensureClosedRoute = (
+  points: Array<{ x: number; y: number }>,
+): Array<{ x: number; y: number }> => {
+  if (points.length < 3) return points
+  const first = points[0]!
+  const last = points[points.length - 1]!
+  if (pointsAreClose(first, last)) {
+    return points
+  }
+  return [...points, { x: first.x, y: first.y }]
+}
+
 const fpPolyHasFill = (fill?: string) => {
   if (!fill) return false
   const normalized = fill.toLowerCase()
@@ -644,10 +656,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
         dedupedRoute.length > 2 &&
         pointsAreClose(dedupedRoute[0]!, dedupedRoute[dedupedRoute.length - 1]!)
       const polygonPoints = isClosed ? dedupedRoute.slice(0, -1) : dedupedRoute
-      const closedRoute =
-        isClosed && polygonPoints.length > 0
-          ? [...polygonPoints, polygonPoints[0]!]
-          : dedupedRoute
+      const closedRoute = ensureClosedRoute(dedupedRoute)
       if (dedupedRoute.length === 0) continue
       const strokeWidth = fp_poly.stroke?.width ?? 0
       if (fp_poly.layer.endsWith(".Cu")) {
