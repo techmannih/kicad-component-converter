@@ -51,6 +51,40 @@ const getAxisAlignedRectFromPoints = (
   }
 }
 
+const getBoundingRectFromPoints = (
+  points: Array<{ x: number; y: number }>,
+) => {
+  if (!points.length) return null
+
+  let minX = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  for (const point of points) {
+    minX = Math.min(minX, point.x)
+    maxX = Math.max(maxX, point.x)
+    minY = Math.min(minY, point.y)
+    maxY = Math.max(maxY, point.y)
+  }
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxY)
+  ) {
+    return null
+  }
+
+  return {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+    width: maxX - minX,
+    height: maxY - minY,
+  }
+}
+
 const getRotationDeg = (at: number[] | undefined) => {
   if (!at) return 0
   if (Array.isArray(at) && at.length >= 3 && typeof at[2] === "number") {
@@ -71,11 +105,13 @@ export const convertKicadLayerToTscircuitLayer = (kicadLayer: string) => {
     case "f.cu":
     case "f.fab":
     case "f.silks":
+    case "f.crtyd":
     case "edge.cuts":
       return "top"
     case "b.cu":
     case "b.fab":
     case "b.silks":
+    case "b.crtyd":
       return "bottom"
   }
 }
@@ -88,6 +124,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
     fp_texts,
     fp_arcs,
     fp_circles,
+    fp_rects,
     pads,
     properties,
     holes,
@@ -170,6 +207,77 @@ export const convertKicadJsonToTsCircuitSoup = async (
     width: Number.isFinite(minX) ? maxX - minX : 0,
     height: Number.isFinite(minY) ? maxY - minY : 0,
   } as any)
+
+  const courtyardByLayer = new Map<
+    string,
+    { layer: string; points: Array<{ x: number; y: number }> }
+  >()
+
+  const addCourtyardPoint = (
+    layer: string | undefined,
+    point: { x: number; y: number },
+  ) => {
+    if (!layer) return
+    const key = layer.toLowerCase()
+    const existing = courtyardByLayer.get(key)
+    if (existing) {
+      existing.points.push(point)
+      return
+    }
+    courtyardByLayer.set(key, { layer, points: [point] })
+  }
+
+  if (fp_rects) {
+    for (const fp_rect of fp_rects) {
+      const lowerLayer = fp_rect.layer.toLowerCase()
+      if (!lowerLayer.endsWith(".crtyd")) continue
+
+      const [startX, startY] = fp_rect.start
+      const [endX, endY] = fp_rect.end
+      addCourtyardPoint(fp_rect.layer, { x: startX, y: startY })
+      addCourtyardPoint(fp_rect.layer, { x: endX, y: endY })
+      addCourtyardPoint(fp_rect.layer, { x: startX, y: endY })
+      addCourtyardPoint(fp_rect.layer, { x: endX, y: startY })
+    }
+  }
+
+  for (const fp_line of fp_lines) {
+    const lowerLayer = fp_line.layer.toLowerCase()
+    if (!lowerLayer.endsWith(".crtyd")) continue
+
+    addCourtyardPoint(fp_line.layer, {
+      x: fp_line.start[0],
+      y: fp_line.start[1],
+    })
+    addCourtyardPoint(fp_line.layer, {
+      x: fp_line.end[0],
+      y: fp_line.end[1],
+    })
+  }
+
+  let courtyardRectId = 0
+  for (const courtyard of courtyardByLayer.values()) {
+    if (!courtyard.points.length) continue
+
+    const rect =
+      getAxisAlignedRectFromPoints(courtyard.points) ??
+      getBoundingRectFromPoints(courtyard.points)
+    if (!rect) continue
+
+    const tscircuitLayer = convertKicadLayerToTscircuitLayer(courtyard.layer)
+    if (!tscircuitLayer) continue
+
+    circuitJson.push({
+      type: "pcb_courtyard_rect",
+      pcb_courtyard_rect_id: `pcb_courtyard_rect_${courtyardRectId++}`,
+      pcb_component_id,
+      layer: tscircuitLayer,
+      x: rect.x,
+      y: -rect.y,
+      width: rect.width,
+      height: rect.height,
+    } as any)
+  }
 
   // Create pcb_port elements
   let pcbPortId = 0
