@@ -156,6 +156,10 @@ export const convertKicadJsonToTsCircuitSoup = async (
   let maxX = Number.NEGATIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
+  let padCenterMinX = Number.POSITIVE_INFINITY
+  let padCenterMaxX = Number.NEGATIVE_INFINITY
+  let padCenterMinY = Number.POSITIVE_INFINITY
+  let padCenterMaxY = Number.NEGATIVE_INFINITY
   for (const pad of pads) {
     const x = pad.at[0]
     const y = -pad.at[1]
@@ -165,8 +169,23 @@ export const convertKicadJsonToTsCircuitSoup = async (
     maxX = Math.max(maxX, x + w / 2)
     minY = Math.min(minY, y - h / 2)
     maxY = Math.max(maxY, y + h / 2)
+    const padCenterX = pad.at[0]
+    const padCenterY = pad.at[1]
+    padCenterMinX = Math.min(padCenterMinX, padCenterX)
+    padCenterMaxX = Math.max(padCenterMaxX, padCenterX)
+    padCenterMinY = Math.min(padCenterMinY, padCenterY)
+    padCenterMaxY = Math.max(padCenterMaxY, padCenterY)
   }
   const pcb_component_id = "pcb_component_0"
+
+  const padCenterAverageX =
+    Number.isFinite(padCenterMinX) && Number.isFinite(padCenterMaxX)
+      ? (padCenterMinX + padCenterMaxX) / 2
+      : 0
+  const padCenterAverageY =
+    Number.isFinite(padCenterMinY) && Number.isFinite(padCenterMaxY)
+      ? (padCenterMinY + padCenterMaxY) / 2
+      : 0
 
   circuitJson.push({
     type: "pcb_component",
@@ -774,6 +793,49 @@ export const convertKicadJsonToTsCircuitSoup = async (
         } as any)
       }
     }
+  }
+
+  const padLabelPadding = 0.8
+  for (const pad of pads) {
+    const padName = pad.name?.trim?.()
+    if (!padName || padName === "~") continue
+
+    const padCenterX = pad.at[0]
+    const padCenterY = pad.at[1]
+    let dirX = padCenterX - padCenterAverageX
+    let dirY = padCenterY - padCenterAverageY
+    const magnitude = Math.hypot(dirX, dirY)
+    if (magnitude < 1e-3) {
+      dirX = 0
+      dirY = -1
+    } else {
+      dirX /= magnitude
+      dirY /= magnitude
+    }
+
+    const padSize = Math.max(
+      Math.abs(pad.size?.[0] ?? 0),
+      Math.abs(pad.size?.[1] ?? 0),
+    )
+    const labelOffset = padSize / 2 + padLabelPadding
+
+    const labelX = padCenterX + dirX * labelOffset
+    const labelY = padCenterY + dirY * labelOffset
+
+    const hasBottomLayerOnly =
+      pad.layers?.some((layer) => layer?.toLowerCase?.().startsWith("b.")) &&
+      !pad.layers?.some((layer) => layer?.toLowerCase?.().startsWith("f."))
+
+    circuitJson.push({
+      type: "pcb_silkscreen_text",
+      layer: hasBottomLayerOnly ? "bottom" : "top",
+      font: "tscircuit2024",
+      font_size: 1,
+      pcb_component_id,
+      anchor_position: { x: labelX, y: -labelY },
+      anchor_alignment: "center",
+      text: padName,
+    } as any)
   }
 
   for (const fp_text of fp_texts) {
