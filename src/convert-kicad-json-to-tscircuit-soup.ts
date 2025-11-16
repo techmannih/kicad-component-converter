@@ -156,15 +156,46 @@ export const convertKicadJsonToTsCircuitSoup = async (
   let maxX = Number.NEGATIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
+
+  const expandBounds = (x: number, y: number, width: number, height: number) => {
+    minX = Math.min(minX, x - width / 2)
+    maxX = Math.max(maxX, x + width / 2)
+    minY = Math.min(minY, y - height / 2)
+    maxY = Math.max(maxY, y + height / 2)
+  }
+
   for (const pad of pads) {
+    const rotation = getRotationDeg(pad.at as any)
+    const padWidth = isNinetyLike(rotation) ? pad.size[1] : pad.size[0]
+    const padHeight = isNinetyLike(rotation) ? pad.size[0] : pad.size[1]
     const x = pad.at[0]
     const y = -pad.at[1]
-    const w = pad.size[0]
-    const h = pad.size[1]
-    minX = Math.min(minX, x - w / 2)
-    maxX = Math.max(maxX, x + w / 2)
-    minY = Math.min(minY, y - h / 2)
-    maxY = Math.max(maxY, y + h / 2)
+    expandBounds(x, y, padWidth, padHeight)
+  }
+
+  if (holes) {
+    for (const hole of holes) {
+      const rotation = getRotationDeg(hole.at as any)
+      const width = isNinetyLike(rotation)
+        ? hole.size?.height ?? hole.drill?.width ?? 0
+        : hole.size?.width ?? hole.drill?.width ?? 0
+      const height = isNinetyLike(rotation)
+        ? hole.size?.width ?? hole.drill?.height ?? 0
+        : hole.size?.height ?? hole.drill?.height ?? 0
+      const x = hole.at[0]
+      const y = -hole.at[1]
+      expandBounds(x, y, width, height)
+    }
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX)) {
+    minX = 0
+    maxX = 0
+  }
+
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+    minY = 0
+    maxY = 0
   }
   const pcb_component_id = "pcb_component_0"
 
@@ -175,8 +206,8 @@ export const convertKicadJsonToTsCircuitSoup = async (
     layer: "top",
     center: { x: 0, y: 0 },
     rotation: 0,
-    width: Number.isFinite(minX) ? maxX - minX : 0,
-    height: Number.isFinite(minY) ? maxY - minY : 0,
+    width: maxX - minX,
+    height: maxY - minY,
   } as any)
 
   // Create pcb_port elements
@@ -196,21 +227,23 @@ export const convertKicadJsonToTsCircuitSoup = async (
     if (pad) {
       x = pad.at[0]
       y = -pad.at[1]
-      layers = pad.layers
+      const mappedLayers = pad.layers
         ? (pad.layers
             .map((l) => convertKicadLayerToTscircuitLayer(l))
-            .filter(Boolean) as string[])
-        : ["top", "bottom"]
+            .filter((layer): layer is string => Boolean(layer)))
+        : []
+      layers = mappedLayers.length > 0 ? mappedLayers : ["top", "bottom"]
     } else if (holes) {
       const hole = holes.find((h) => h.name === portName)
       if (hole) {
         x = hole.at[0]
         y = -hole.at[1]
-        layers = hole.layers
+        const mappedLayers = hole.layers
           ? (hole.layers
               .map((l) => convertKicadLayerToTscircuitLayer(l))
-              .filter(Boolean) as string[])
-          : ["top", "bottom"]
+              .filter((layer): layer is string => Boolean(layer)))
+          : []
+        layers = mappedLayers.length > 0 ? mappedLayers : ["top", "bottom"]
       }
     }
 

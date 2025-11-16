@@ -78,9 +78,15 @@ export const parseKicadModToKicadJson = (fileContent: string): KicadModJson => {
       layers = []
     }
 
-    // Skip pads that do NOT include 'F.Cu' layer
-    if (!layers.includes("F.Cu")) {
-      debug(`Skipping pad without F.Cu layer: layers=${layers.join(", ")}`)
+    const hasCopperLayer = layers.some((layer: string) =>
+      layer === "*.Cu" || layer.endsWith(".Cu"),
+    )
+
+    // Skip pads that do NOT include any copper layer (top, bottom or wildcard)
+    if (!hasCopperLayer) {
+      debug(
+        `Skipping pad without copper layer: layers=${layers.join(", ")}`,
+      )
       continue
     }
 
