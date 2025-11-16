@@ -73,6 +73,45 @@ const isNinetyLike = (deg: number) => {
 
 const debug = Debug("kicad-mod-converter")
 
+type BoundingSide = "left" | "right" | "top" | "bottom"
+
+type BoundingBox = {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
+type LabelPlacementInput = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const getClosestBoundingSide = (
+  bounds: BoundingBox,
+  { x, y, width, height }: LabelPlacementInput,
+): BoundingSide => {
+  const halfWidth = width / 2
+  const halfHeight = height / 2
+  const padLeft = x - halfWidth
+  const padRight = x + halfWidth
+  const padTop = y - halfHeight
+  const padBottom = y + halfHeight
+
+  const distances: Array<{ side: BoundingSide; distance: number }> = [
+    { side: "left", distance: Math.abs(padLeft - bounds.minX) },
+    { side: "right", distance: Math.abs(bounds.maxX - padRight) },
+    { side: "top", distance: Math.abs(padTop - bounds.minY) },
+    { side: "bottom", distance: Math.abs(bounds.maxY - padBottom) },
+  ]
+
+  return distances.reduce((closest, candidate) =>
+    candidate.distance < closest.distance ? candidate : closest,
+  ).side
+}
+
 export const convertKicadLayerToTscircuitLayer = (kicadLayer: string) => {
   const lowerLayer = kicadLayer.toLowerCase()
   switch (lowerLayer) {
@@ -829,6 +868,98 @@ export const convertKicadJsonToTsCircuitSoup = async (
       anchor_alignment: "center",
       text: propFab!.val,
     } as any)
+  }
+
+  const hasFiniteBounds =
+    Number.isFinite(minX) &&
+    Number.isFinite(maxX) &&
+    Number.isFinite(minY) &&
+    Number.isFinite(maxY)
+
+  if (hasFiniteBounds && pads.length > 0) {
+    const padLabelFontSize = getSilkscreenFontSizeFromFpTexts(fp_texts) ?? 1
+    const padLabelGap = Math.max(0.6, padLabelFontSize * 0.8)
+    const bounds: BoundingBox = {
+      minX: minX as number,
+      maxX: maxX as number,
+      minY: minY as number,
+      maxY: maxY as number,
+    }
+
+    type PadLabelCandidate = LabelPlacementInput & { text: string }
+    const labelCandidates: PadLabelCandidate[] = []
+
+    for (const pad of pads) {
+      if (!pad.name?.trim()) continue
+      const rotation = getRotationDeg(pad.at as any)
+      const width = isNinetyLike(rotation) ? pad.size[1] : pad.size[0]
+      const height = isNinetyLike(rotation) ? pad.size[0] : pad.size[1]
+      labelCandidates.push({
+        text: pad.name,
+        x: pad.at[0],
+        y: -pad.at[1],
+        width,
+        height,
+      })
+    }
+
+    if (holes) {
+      for (const hole of holes) {
+        if (!hole.name?.trim()) continue
+        const rotation = getRotationDeg(hole.at as any)
+        const rawWidth =
+          hole.size?.width ??
+          hole.size?.height ??
+          hole.drill?.width ??
+          0
+        const rawHeight =
+          hole.size?.height ??
+          hole.size?.width ??
+          hole.drill?.height ??
+          hole.drill?.width ??
+          0
+        const width = isNinetyLike(rotation) ? rawHeight : rawWidth
+        const height = isNinetyLike(rotation) ? rawWidth : rawHeight
+        labelCandidates.push({
+          text: hole.name,
+          x: hole.at[0],
+          y: -hole.at[1],
+          width,
+          height,
+        })
+      }
+    }
+
+    for (const candidate of labelCandidates) {
+      const side = getClosestBoundingSide(bounds, candidate)
+      const normalizedWidth = Math.max(candidate.width, 0)
+      const normalizedHeight = Math.max(candidate.height, 0)
+      const horizontalGap = normalizedWidth / 2 + padLabelGap
+      const verticalGap = normalizedHeight / 2 + padLabelGap
+      let labelX = candidate.x
+      let labelY = candidate.y
+
+      if (side === "left") {
+        labelX -= horizontalGap
+      } else if (side === "right") {
+        labelX += horizontalGap
+      } else if (side === "top") {
+        labelY -= verticalGap
+      } else {
+        labelY += verticalGap
+      }
+
+      circuitJson.push({
+        type: "pcb_silkscreen_text",
+        layer: "top",
+        font: "tscircuit2024",
+        font_size: padLabelFontSize,
+        pcb_component_id,
+        anchor_position: { x: labelX, y: labelY },
+        anchor_alignment: "center",
+        text: candidate.text,
+      } as any)
+    }
   }
 
   return circuitJson as any
