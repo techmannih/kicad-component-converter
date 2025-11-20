@@ -99,6 +99,32 @@ export const convertKicadLayerToTscircuitLayer = (kicadLayer: string) => {
   }
 }
 
+const getPortLayersFromKicadLayers = (layers?: string[]) => {
+  if (!layers || layers.length === 0) return ["top", "bottom"]
+
+  const normalizedLayers = new Set<string>()
+
+  for (const layer of layers) {
+    const lower = layer.toLowerCase()
+    if (lower === "*.cu") {
+      normalizedLayers.add("top")
+      normalizedLayers.add("bottom")
+      continue
+    }
+
+    const convertedLayer = convertKicadLayerToTscircuitLayer(layer)
+    if (convertedLayer) {
+      normalizedLayers.add(convertedLayer)
+    }
+  }
+
+  if (normalizedLayers.size === 0) {
+    return ["top", "bottom"]
+  }
+
+  return [...normalizedLayers]
+}
+
 export const convertKicadJsonToTsCircuitSoup = async (
   kicadJson: KicadModJson,
 ): Promise<AnyCircuitElement[]> => {
@@ -223,21 +249,13 @@ export const convertKicadJsonToTsCircuitSoup = async (
     if (pad) {
       x = pad.at[0]
       y = -pad.at[1]
-      layers = pad.layers
-        ? (pad.layers
-            .map((l) => convertKicadLayerToTscircuitLayer(l))
-            .filter(Boolean) as string[])
-        : ["top", "bottom"]
+      layers = getPortLayersFromKicadLayers(pad.layers)
     } else if (holes) {
       const hole = holes.find((h) => normalizePortName(h.name) === portName)
       if (hole) {
         x = hole.at[0]
         y = -hole.at[1]
-        layers = hole.layers
-          ? (hole.layers
-              .map((l) => convertKicadLayerToTscircuitLayer(l))
-              .filter(Boolean) as string[])
-          : ["top", "bottom"]
+        layers = getPortLayersFromKicadLayers(hole.layers)
       }
     }
 
