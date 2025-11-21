@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useStore } from "./use-store"
 import { Download, FileSearch } from "lucide-react"
 import { parseKicadModToCircuitJson } from "src/parse-kicad-mod-to-circuit-json"
@@ -16,6 +16,35 @@ export const App = () => {
   const updateTscircuitCode = useStore((s) => s.updateTscircuitCode)
   const tscircuitCode = useStore((s) => s.tscircuitCode)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const previewContainerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const container = previewContainerRef.current
+    if (!container) return
+
+    const removeTitles = () => {
+      container.querySelectorAll("[title]").forEach((el) => {
+        el.removeAttribute("title")
+      })
+    }
+
+    removeTitles()
+
+    const observer = new MutationObserver(() => {
+      removeTitles()
+    })
+
+    observer.observe(container, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["title"],
+    })
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [circuitJson])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const handleProcessAndViewFiles = useCallback(async () => {
@@ -241,7 +270,10 @@ export const App = () => {
             )}
           </div>
           {circuitJson && (
-            <div className="w-full bg-gray-800/50 px-2 rounded-md">
+            <div
+              ref={previewContainerRef}
+              className="w-full bg-gray-800/50 px-2 rounded-md"
+            >
               <CircuitJsonPreview
                 circuitJson={circuitJson}
                 showCodeTab
