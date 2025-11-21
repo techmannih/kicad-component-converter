@@ -288,27 +288,6 @@ export const convertKicadJsonToTsCircuitSoup = async (
     } as any)
   }
 
-  for (const [portName, position] of portNameToPosition.entries()) {
-    const pinNumber = portNameToPinNumber.get(portName)
-    const portLabel = getPortLabel(portName, pinNumber)!
-    const targetLayer = position.layers.includes("top")
-      ? "top"
-      : position.layers.includes("bottom")
-        ? "bottom"
-        : "top"
-
-    circuitJson.push({
-      type: "pcb_silkscreen_text",
-      layer: targetLayer,
-      font: "tscircuit2024",
-      font_size: silkscreenFontSize ?? 1,
-      pcb_component_id,
-      anchor_position: { x: position.x, y: position.y },
-      anchor_alignment: "center",
-      text: portLabel,
-    } as any)
-  }
-
   let smtpadId = 0
   let platedHoleId = 0
   let holeId = 0
