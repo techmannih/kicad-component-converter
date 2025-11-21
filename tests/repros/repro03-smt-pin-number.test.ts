@@ -19,4 +19,5 @@ test("SMD pad carries pin_number on pcb_smtpad", async () => {
 
   expect(pad.port_hints).toEqual(["1"])
   expect(pad.pin_number).toBe(1)
+  expect(pad.port_label).toBe("1")
 })
