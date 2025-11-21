@@ -302,6 +302,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
     const portName = normalizePortName(pad.name)
     const pinNumber = portName ? portNameToPinNumber.get(portName) : undefined
     const portLabel = getPortLabel(portName, pinNumber)
+    const { port_hints } = getPortMetadata(portLabel, portName)
 
     if (pad.pad_type === "smd") {
       const rotation = getRotationDeg(pad.at)
@@ -323,6 +324,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
         pcb_port_id,
         name: portLabel,
         port_label: portLabel,
+        port_hints,
         pin_number: pinNumber,
       } as any)
     } else if (pad.pad_type === "thru_hole") {
@@ -355,6 +357,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
           pcb_port_id,
           name: portLabel,
           port_label: portLabel,
+          port_hints,
           pin_number: pinNumber,
         } as any)
       } else if (pad.pad_shape === "circle") {
@@ -374,6 +377,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
           pcb_port_id,
           name: portLabel,
           port_label: portLabel,
+          port_hints,
           pin_number: pinNumber,
         } as any)
       } else if (pad.pad_shape === "oval") {
@@ -395,6 +399,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
           pcb_port_id,
           name: portLabel,
           port_label: portLabel,
+          port_hints,
           pin_number: pinNumber,
         } as any)
       }
@@ -415,6 +420,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
       const portName = normalizePortName(hole.name)
       const pinNumber = portName ? portNameToPinNumber.get(portName) : undefined
       const portLabel = getPortLabel(portName, pinNumber)
+      const { port_hints } = getPortMetadata(portLabel, portName)
       const hasCuLayer = hole.layers?.some(
         (l) => l.endsWith(".Cu") || l === "*.Cu",
       )
@@ -470,6 +476,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
             pcb_port_id,
             name: portLabel,
             port_label: portLabel,
+            port_hints,
             pin_number: pinNumber,
           } as any)
         } else if (hole.pad_shape === "oval") {
@@ -499,6 +506,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
             pcb_port_id,
             name: portLabel,
             port_label: portLabel,
+            port_hints,
             pin_number: pinNumber,
           } as any)
         } else if (hole.pad_shape === "roundrect") {
@@ -533,6 +541,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
             pcb_port_id,
             name: portLabel,
             port_label: portLabel,
+            port_hints,
             pin_number: pinNumber,
           } as any)
         } else {
@@ -552,6 +561,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
             pcb_port_id,
             name: portLabel,
             port_label: portLabel,
+            port_hints,
             pin_number: pinNumber,
           } as any)
         }
