@@ -191,13 +191,12 @@ export const convertKicadJsonToTsCircuitSoup = async (
     portNameToSourcePortId.set(portName, source_port_id)
     const pinNumber = portNameToPinNumber.get(portName)
     const portLabel = getPortLabel(portName, pinNumber)
-    const { port_label, port_hints } = getPortMetadata(portLabel, portName)
+    const { port_hints } = getPortMetadata(portLabel, portName)
     circuitJson.push({
       type: "source_port",
       source_port_id,
       source_component_id: "source_component_0",
       name: portName,
-      port_label,
       port_hints,
       pin_number: pinNumber,
     })
