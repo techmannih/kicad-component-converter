@@ -37,6 +37,7 @@ test("ProMicro footprint preserves port hints and pin numbers", async () => {
       expect(platedHole.port_hints).toEqual(
         platedHole.port_hints.map((hint: any) => `${hint}`),
       )
+      expect(platedHole.port_label).toBe(`${platedHole.port_hints[0]}`)
       const pinNumber = Number(platedHole.port_hints[0])
       if (Number.isFinite(pinNumber)) {
         expect(platedHole.pin_number).toBe(pinNumber)
@@ -49,6 +50,7 @@ test("ProMicro footprint preserves port hints and pin numbers", async () => {
       expect(pcbPort.port_hints).toEqual(
         pcbPort.port_hints.map((hint: any) => `${hint}`),
       )
+      expect(pcbPort.port_label).toBe(`${pcbPort.port_hints[0]}`)
       const pinNumber = Number(pcbPort.port_hints[0])
       if (Number.isFinite(pinNumber)) {
         expect(pcbPort.pin_number).toBe(pinNumber)
