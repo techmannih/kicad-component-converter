@@ -213,6 +213,7 @@ export const convertKicadJsonToTsCircuitSoup = async (
     const pcb_port_id = `pcb_port_${pcbPortId++}`
     const source_port_id = portNameToSourcePortId.get(portName)!
     portNameToPcbPortId.set(portName, pcb_port_id)
+    const pinNumber = portNameToPinNumber.get(portName)
 
     // Find the position from the first pad/hole with this name
     let x = 0
@@ -249,6 +250,8 @@ export const convertKicadJsonToTsCircuitSoup = async (
       x,
       y,
       layers,
+      port_hints: [portName],
+      pin_number: pinNumber,
     } as any)
   }
 
